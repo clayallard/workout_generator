@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$PROJECT_ROOT"
+
+if [[ -x "$PROJECT_ROOT/.venv/bin/python" ]]; then
+  SERVER_CMD=("$PROJECT_ROOT/.venv/bin/python" -m workout_generator.web --port random)
+elif command -v uv >/dev/null 2>&1; then
+  SERVER_CMD=(uv run python -m workout_generator.web --port random)
+else
+  echo "Could not find .venv/bin/python or uv. Run from $PROJECT_ROOT after creating the project environment." >&2
+  exit 1
+fi
+
+open_url() {
+  local url="$1"
+  local windows_chrome="/mnt/c/Program Files/Google/Chrome/Application/chrome.exe"
+  local windows_chrome_x86="/mnt/c/Program Files (x86)/Google/Chrome/Application/chrome.exe"
+
+  if command -v google-chrome >/dev/null 2>&1; then
+    nohup google-chrome "$url" >/dev/null 2>&1 &
+  elif command -v google-chrome-stable >/dev/null 2>&1; then
+    nohup google-chrome-stable "$url" >/dev/null 2>&1 &
+  elif [[ -x "$windows_chrome" ]]; then
+    nohup "$windows_chrome" "$url" >/dev/null 2>&1 &
+  elif [[ -x "$windows_chrome_x86" ]]; then
+    nohup "$windows_chrome_x86" "$url" >/dev/null 2>&1 &
+  elif command -v wslview >/dev/null 2>&1; then
+    nohup wslview "$url" >/dev/null 2>&1 &
+  elif command -v xdg-open >/dev/null 2>&1; then
+    nohup xdg-open "$url" >/dev/null 2>&1 &
+  elif command -v powershell.exe >/dev/null 2>&1; then
+    powershell.exe -NoProfile -Command "Start-Process '$url'" >/dev/null 2>&1
+  elif command -v cmd.exe >/dev/null 2>&1; then
+    cmd.exe /C start "" "$url" >/dev/null 2>&1
+  elif command -v open >/dev/null 2>&1; then
+    open "$url" >/dev/null 2>&1
+  else
+    echo "Open this URL in your browser: $url"
+  fi
+}
+
+opened=0
+"${SERVER_CMD[@]}" 2>&1 | while IFS= read -r line; do
+  printf '%s\n' "$line"
+  if [[ "$opened" -eq 0 && "$line" =~ (http://localhost:[0-9]+) ]]; then
+    open_url "${BASH_REMATCH[1]}"
+    opened=1
+  fi
+done

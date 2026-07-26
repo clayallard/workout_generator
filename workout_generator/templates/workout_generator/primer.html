@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en" data-theme="{{ theme }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Daily Reps</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Small habit tracker</p>
+        <h1>Daily Reps</h1>
+      </div>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="{{ url_for('index', date=selected_date.isoformat()) }}">Day</a>
+        <a href="{{ url_for('daily_reps', date=selected_date.isoformat()) }}" class="active">Daily Reps</a>
+        <a href="{{ url_for('ratings', date=selected_date.isoformat()) }}">Ratings</a>
+        <a href="{{ url_for('settings', date=selected_date.isoformat()) }}">Settings</a>
+      </nav>
+    </header>
+
+    <main class="page narrow-page">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="messages" role="status" aria-live="polite">
+            {% for category, message in messages %}
+              <div class="message {{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <section class="day-hero compact-hero">
+        <div>
+          <p class="eyebrow">Due through</p>
+          <h2>{{ selected_date.strftime("%A, %B %d, %Y") }}</h2>
+        </div>
+        <div class="week-nav">
+          <a href="{{ url_for('daily_reps', date=previous_date.isoformat()) }}">Previous</a>
+          <a href="{{ url_for('daily_reps', date=today.isoformat()) }}">Today</a>
+          <a href="{{ url_for('daily_reps', date=next_date.isoformat()) }}">Next</a>
+        </div>
+      </section>
+
+      <div class="reps-layout">
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Queue</h2>
+              <span>Check items, then apply one result to all of them. Done raises the target after two in a row. Did not do and failed lower it right away. Skip removes the item without history or target changes.</span>
+            </div>
+          </div>
+
+          {% if due_items %}
+            <form method="post" action="{{ url_for('pre_log') }}" class="rep-batch">
+              <input type="hidden" name="date" value="{{ selected_date.isoformat() }}">
+
+              <label class="rep-select-all">
+                <input type="checkbox" id="rep-select-all">
+                Select all ({{ due_items | length }})
+              </label>
+
+              <div class="rep-list">
+                {% for item in due_items %}
+                  <label class="rep-item">
+                    <input type="checkbox" name="selected" value="{{ item.date.isoformat() }}|{{ item.slot }}" class="rep-check">
+                    <div>
+                      <strong>{{ item.target }} {{ item.exercise }}</strong>
+                      <span>{{ item.date.isoformat() }} · slot {{ item.slot }}</span>
+                    </div>
+                  </label>
+                {% endfor %}
+              </div>
+
+              <div class="rep-actions">
+                <button type="submit" name="outcome" value="done">Mark done</button>
+                <button type="submit" name="outcome" value="missed" class="secondary">Did not do</button>
+                <button type="submit" name="outcome" value="failed" class="secondary">Tried but failed</button>
+                <button type="submit" name="outcome" value="skipped" class="ghost">Skip</button>
+              </div>
+            </form>
+          {% else %}
+            <p class="empty panel-pad">Nothing due through this date.</p>
+          {% endif %}
+        </section>
+
+        <aside class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Today</h2>
+              <span>{{ prework_plan.date.isoformat() }}</span>
+            </div>
+          </div>
+          <div class="rep-summary">
+            {% for slot in prework_plan.slots %}
+              <div class="rep-summary-item">
+                <span>Slot {{ slot.slot }}</span>
+                {% if slot.exercise == "break" %}
+                  <strong>Break</strong>
+                {% else %}
+                  <strong>{{ slot.target }} {{ slot.exercise }}</strong>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+
+          <div class="progress-strip">
+            {% for exercise, values in progress.items() %}
+              <div>
+                <span>{{ exercise }}</span>
+                <strong>{{ values.current_target }}</strong>
+                <small>strike {{ values.streak }}</small>
+              </div>
+            {% endfor %}
+          </div>
+        </aside>
+      </div>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Recent Activity</h2>
+          </div>
+        </div>
+        {% if history %}
+          <div class="history-list">
+            {% for row in history %}
+              <div>
+                <strong>{{ row.outcome | replace("_", " ") | title }}</strong>
+                <span>{{ row.date }} · {% if row.target %}{{ row.target }} {% endif %}{{ row.exercise }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="empty panel-pad">No Daily Reps activity yet.</p>
+        {% endif %}
+      </section>
+    </main>
+    <script>
+      (function () {
+        var master = document.getElementById("rep-select-all");
+        if (!master) {
+          return;
+        }
+        var boxes = Array.prototype.slice.call(document.querySelectorAll(".rep-check"));
+        function syncMaster() {
+          master.checked = boxes.length > 0 && boxes.every(function (box) { return box.checked; });
+        }
+        master.addEventListener("change", function () {
+          boxes.forEach(function (box) { box.checked = master.checked; });
+        });
+        boxes.forEach(function (box) {
+          box.addEventListener("change", syncMaster);
+        });
+        syncMaster();
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en" data-theme="{{ theme }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Workout Settings</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">App settings</p>
+        <h1>Settings</h1>
+      </div>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="{{ url_for('index', date=selected_date.isoformat()) }}">Day</a>
+        <a href="{{ url_for('daily_reps', date=selected_date.isoformat()) }}">Daily Reps</a>
+        <a href="{{ url_for('ratings', date=selected_date.isoformat()) }}">Ratings</a>
+        <a href="{{ url_for('settings', date=selected_date.isoformat()) }}" class="active">Settings</a>
+      </nav>
+    </header>
+
+    <main class="page narrow-page">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="messages" role="status" aria-live="polite">
+            {% for category, message in messages %}
+              <div class="message {{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <div class="settings-layout">
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Appearance</h2>
+            </div>
+          </div>
+          <form method="post" action="{{ url_for('appearance') }}" class="settings-form">
+            <input type="hidden" name="date" value="{{ selected_date.isoformat() }}">
+            <label>
+              Theme
+              <select name="theme">
+                <option value="light" {% if theme == "light" %}selected{% endif %}>Light</option>
+                <option value="dark" {% if theme == "dark" %}selected{% endif %}>Dark</option>
+              </select>
+            </label>
+            <button type="submit" class="secondary">Save appearance</button>
+          </form>
+        </section>
+
+        <section class="panel app-request-panel">
+          <div class="panel-heading">
+            <div>
+              <h2>App Requests</h2>
+            </div>
+          </div>
+          <form method="post" action="{{ url_for('app_request') }}" class="settings-form app-request-form">
+            <input type="hidden" name="date" value="{{ selected_date.isoformat() }}">
+            <label>
+              Requested change
+              <textarea name="text" rows="5" placeholder="Add a feature, fix something awkward, or note what should change..." required></textarea>
+            </label>
+            <button type="submit">Save request</button>
+          </form>
+        </section>
+
+        <section class="panel phone-setup">
+          <div class="panel-heading">
+            <div>
+              <h2>Phone Delivery</h2>
+              <span>One-time ntfy setup; no API key.</span>
+            </div>
+          </div>
+          <div class="panel-pad setup-steps">
+            <p>In ntfy, add a subscription using these exact values:</p>
+            <dl>
+              <div>
+                <dt>Server</dt>
+                <dd><code>{{ ntfy_server }}</code></dd>
+              </div>
+              <div>
+                <dt>Topic</dt>
+                <dd><code>{{ ntfy_topic }}</code></dd>
+              </div>
+            </dl>
+            <p class="help-text">Workouts arrive as HTML attachments. Tap the attached file to open the formatted view. Treat the topic like a private link; anyone who guesses it can read or publish to it.</p>
+          </div>
+          <form method="post" action="{{ url_for('phone_settings') }}" class="settings-form">
+            <input type="hidden" name="date" value="{{ selected_date.isoformat() }}">
+            <label>
+              Topic
+              <input name="topic" value="{{ ntfy_topic }}" minlength="8" maxlength="64" pattern="[A-Za-z0-9_-]+" required>
+            </label>
+            <button type="submit" class="secondary">Save topic</button>
+          </form>
+          <form method="post" action="{{ url_for('phone_test') }}" class="settings-form test-notification-form">
+            <input type="hidden" name="date" value="{{ selected_date.isoformat() }}">
+            <button type="submit">Send test notification</button>
+          </form>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Preferences</h2>
+              <span>Durable coaching notes outside the raw user_info folder.</span>
+            </div>
+          </div>
+          {% if preferences %}
+            <ul class="pref-list">
+              {% for pref in preferences %}
+                <li>{{ pref }}</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="empty panel-pad">No preferences saved yet.</p>
+          {% endif %}
+          <form method="post" action="{{ url_for('preference') }}" class="settings-form">
+            <input type="hidden" name="date" value="{{ selected_date.isoformat() }}">
+            <label>
+              Add preference
+              <textarea name="text" rows="3" placeholder="I always want a 10-minute warm-up. No jumping exercises."></textarea>
+            </label>
+            <button type="submit">Save preference</button>
+          </form>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Coach Memory</h2>
+              <span>Remembered notes from ratings and feedback.</span>
+            </div>
+          </div>
+          {% if coaching_memory %}
+            <ul class="memory-list">
+              {% for entry in coaching_memory %}
+                <li>
+                  <span>{{ entry.source_date or entry.source_type }}</span>
+                  {{ entry.content }}
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="empty panel-pad">No remembered coaching notes yet.</p>
+          {% endif %}
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Daily Reps Targets</h2>
+            </div>
+          </div>
+          <div class="progress-strip">
+            {% for exercise, values in progress.items() %}
+              <div>
+                <span>{{ exercise }}</span>
+                <strong>{{ values.current_target }}</strong>
+                <small>streak {{ values.streak }}</small>
+              </div>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="panel danger-zone">
+          <div class="panel-heading">
+            <div>
+              <h2>Advanced</h2>
+              <span>Only clears generated future state.</span>
+            </div>
+          </div>
+          <form method="post" action="{{ url_for('clear') }}" class="settings-form">
+            <input type="hidden" name="date" value="{{ selected_date.isoformat() }}">
+            <label>
+              Clear after
+              <input type="date" name="after" value="{{ selected_date.isoformat() }}">
+            </label>
+            <button type="submit" class="danger">Clear future state</button>
+          </form>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

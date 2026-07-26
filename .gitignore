@@ -1,0 +1,36 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+.codex
+.agent_updates/
+/data/
+
+# Private project notes and runtime history
+/context/
+/context/secrets/
+
+# User-authored profile data is local input, not public source code.
+# Keep the safe usage guide while ignoring every other profile file.
+/user_profile/*
+!/user_profile/README.md
+
+# Local credentials, including API keys used during development
+.env
+.env.*
+!.env.example
+
+# SQLite files can contain workout history, feedback, and settings.
+*.sqlite3
+*.db

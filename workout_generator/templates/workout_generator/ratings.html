@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en" data-theme="{{ theme }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Workout Ratings</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Selected-day feedback</p>
+        <h1>Ratings and Notes</h1>
+      </div>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="{{ url_for('index', date=selected_date.isoformat()) }}">Day</a>
+        <a href="{{ url_for('daily_reps', date=selected_date.isoformat()) }}">Daily Reps</a>
+        <a href="{{ url_for('ratings', date=selected_date.isoformat()) }}" class="active">Ratings</a>
+        <a href="{{ url_for('settings', date=selected_date.isoformat()) }}">Settings</a>
+      </nav>
+    </header>
+
+    <main class="page narrow-page">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="messages" role="status" aria-live="polite">
+            {% for category, message in messages %}
+              <div class="message {{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <section class="day-hero compact-hero">
+        <div>
+          <p class="eyebrow">Selected day</p>
+          <h2>{{ selected_date.strftime("%A, %B %d, %Y") }}</h2>
+        </div>
+        <div class="week-nav">
+          <a href="{{ url_for('ratings', date=previous_date.isoformat()) }}">Previous</a>
+          <a href="{{ url_for('ratings', date=today.isoformat()) }}">Today</a>
+          <a href="{{ url_for('ratings', date=next_date.isoformat()) }}">Next</a>
+        </div>
+      </section>
+
+      <section class="panel notes-panel">
+        {% if feedback_entries %}
+          <div class="feedback-list">
+            {% for entry in feedback_entries %}
+              <article class="feedback-item">
+                <div class="rating-row">
+                  {% if entry.completion %}<span>{{ entry.completion | replace("_", " ") | title }}</span>{% endif %}
+                  {% if entry.difficulty %}<span>{{ entry.difficulty | replace("_", " ") | title }}</span>{% endif %}
+                  {% if entry.enjoyment %}<span>{{ entry.enjoyment | replace("_", " ") | title }}</span>{% endif %}
+                </div>
+                <p>{{ entry.source_text }}</p>
+                <time datetime="{{ entry.created_at }}">{{ entry.created_at | timestamp }}</time>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="empty panel-pad">No ratings saved for this day.</p>
+        {% endif %}
+
+        <form method="post" action="{{ url_for('feedback') }}" class="notes-form">
+          <input type="hidden" name="date" value="{{ selected_date.isoformat() }}">
+          <label>
+            Completion
+            <select name="completion">
+              <option value="">No rating</option>
+              <option value="completed">Completed</option>
+              <option value="partial">Partial</option>
+              <option value="missed">Missed</option>
+            </select>
+          </label>
+          <label>
+            Difficulty
+            <select name="difficulty">
+              <option value="">No rating</option>
+              <option value="easy">Easy</option>
+              <option value="as_expected">As expected</option>
+              <option value="hard">Hard</option>
+            </select>
+          </label>
+          <label>
+            Enjoyment
+            <select name="enjoyment">
+              <option value="">No rating</option>
+              <option value="liked">Liked</option>
+              <option value="neutral">Neutral</option>
+              <option value="disliked">Disliked</option>
+            </select>
+          </label>
+          <label class="notes-text">
+            Note
+            <textarea name="text" rows="4" placeholder="What happened today?"></textarea>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" name="remember" value="1">
+            <span>Remember for future workouts</span>
+          </label>
+          <button type="submit">Save day note</button>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

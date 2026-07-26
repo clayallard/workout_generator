@@ -1,0 +1,22 @@
+[project]
+name = "workout-generator"
+version = "0.1.0"
+description = "Local-first workout planning and coaching built on a deterministic schedule engine"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "flask>=3.0",
+    "numpy>=1.26",
+    "google-genai>=1.0.0",
+    "markdown-it-py>=3.0",
+]
+
+[project.scripts]
+workout = "workout_generator.cli:main"
+workout-web = "workout_generator.web:main"
+
+[tool.setuptools.packages.find]
+include = ["workout_generator*"]
+
+[tool.uv]
+package = true

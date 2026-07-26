@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en" data-theme="{{ theme }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Workout Generator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  </head>
+  <body>
+    {% set flashed_messages = get_flashed_messages(with_categories=true) %}
+
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Local workout planner</p>
+        <h1>Workout Generator</h1>
+      </div>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="{{ url_for('index', date=selected_date.isoformat()) }}" class="active">Day</a>
+        <a href="{{ url_for('daily_reps', date=selected_date.isoformat()) }}">Daily Reps</a>
+        <a href="{{ url_for('ratings', date=selected_date.isoformat()) }}">Ratings</a>
+        <a href="{{ url_for('settings', date=selected_date.isoformat()) }}">Settings</a>
+      </nav>
+    </header>
+
+    <main class="page">
+      {% if flashed_messages %}
+        <div class="messages" role="status" aria-live="polite">
+          {% for category, message in flashed_messages if category != "answer" %}
+            <div class="message {{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <section class="day-hero" aria-label="Selected day">
+        <div>
+          <p class="eyebrow">Selected day</p>
+          <h2>{{ selected_date.strftime("%A, %B %d, %Y") }}</h2>
+          <div class="status-row">
+            {% if selected_date == today %}
+            <span class="status-pill">Today</span>
+            {% elif selected_date == tomorrow %}
+              <span class="status-pill">Tomorrow</span>
+            {% elif selected_date < today %}
+              <span class="status-pill muted">Past day</span>
+            {% else %}
+              <span class="status-pill muted">Upcoming</span>
+            {% endif %}
+            <span class="type-pill">{{ schedule_day.type }}</span>
+            {% if saved_workout %}
+              <span class="generated-focus">{{ saved_workout.content | workout_focus }}</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="hero-actions">
+          <a class="button-link secondary" href="{{ url_for('daily_reps', date=selected_date.isoformat()) }}">Open Daily Reps</a>
+          <a class="button-link" href="#workout">{{ "Review Workout" if saved_workout else "Generate Workout" }}</a>
+        </div>
+      </section>
+
+      <div class="day-layout">
+        <aside class="schedule-rail" aria-label="Schedule">
+          <div class="rail-heading">
+            <div>
+              <h2>Schedule</h2>
+              <span>{{ schedule_start.isoformat() }} through {{ schedule_end.isoformat() }}</span>
+            </div>
+          </div>
+
+          <form method="get" action="{{ url_for('index') }}" class="schedule-search">
+            <label>
+              Search date
+              <input type="date" name="date" aria-label="Search date">
+            </label>
+            <button type="submit">Go</button>
+          </form>
+
+          <div class="week-nav" aria-label="Schedule navigation">
+            <a href="{{ url_for('index', date=previous_date.isoformat()) }}">Back one day</a>
+            <a href="{{ url_for('index', date=today.isoformat()) }}">Today</a>
+            <a href="{{ url_for('index', date=next_date.isoformat()) }}">Forward one day</a>
+          </div>
+
+          <ol class="day-list">
+            {% for day in schedule_window %}
+              {% set rail_workout = saved_workouts.get(day.date.isoformat()) %}
+              <li>
+                <a class="day-link {% if day.date == selected_date %}selected{% endif %}" href="{{ url_for('index', date=day.date.isoformat()) }}">
+                  <span class="day-link-top">
+                    <strong>{{ day.date.strftime("%a %b %d") }}</strong>
+                    <span class="type-pill compact">{{ day.type }}</span>
+                  </span>
+                  {% if rail_workout %}
+                    <span class="day-link-detail">{{ rail_workout.content | workout_focus }}</span>
+                  {% endif %}
+                </a>
+              </li>
+            {% endfor %}
+          </ol>
+        </aside>
+
+        <div class="day-main">
+          <section id="workout" class="panel workout-panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Workout</h2>
+                <span>{{ selected_date.isoformat() }}</span>
+              </div>
+              <span class="status-pill {{ 'saved' if saved_workout else 'muted' }}">{{ "Saved" if saved_workout else "Not generated" }}</span>
+            </div>
+
+            {% if saved_workout %}
+              <div class="workout-meta">
+                <span>{{ saved_workout.schedule_type }}</span>
+                <span>{{ saved_workout.file_path }}</span>
+              </div>
+              {% if saved_workout.note %}
+                <p class="saved-note">Saved request: {{ saved_workout.note }}</p>
+              {% endif %}
+              <div class="markdown-output">{{ saved_workout.content | workout_markdown }}</div>
+
+              <form method="post" action="{{ url_for('send_workout') }}" class="delivery-action">
+                <input type="hidden" name="date" value="{{ selected_date.isoformat() }}">
+                <button type="submit">Send to phone</button>
+                <a href="{{ url_for('settings', date=selected_date.isoformat()) }}">Phone setup</a>
+              </form>
+            {% else %}
+              <div class="empty-block">
+                <p class="empty">No saved workout for this date.</p>
+                <form method="post" action="{{ url_for('workout') }}" class="stack-form generate-form">
+                  <input type="hidden" name="date" value="{{ selected_date.isoformat() }}">
+                  <label>
+                    Request note
+                    <textarea name="note" rows="4" placeholder="Injuries, time limit, equipment, travel, focus..."></textarea>
+                  </label>
+                  <button type="submit" name="action" value="generate">Generate workout</button>
+                </form>
+              </div>
+            {% endif %}
+          </section>
+
+          {% if saved_workout %}
+            <section id="revision-discussion" class="panel revision-panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Revision Discussion</h2>
+                  <span>Type a change and Apply to let the coach make it, or Discuss first to talk it through. The saved workout changes only when you Apply.</span>
+                </div>
+                {% if revision_thread %}
+                  <span class="status-pill {{ 'saved' if revision_thread.status == 'applied' else 'muted' }}">{{ revision_thread.status | title }}</span>
+                {% endif %}
+              </div>
+
+              {% if revision_thread and revision_thread.messages %}
+                <div class="revision-conversation">
+                  {% for message in revision_thread.messages %}
+                    <article class="revision-message">
+                      <p class="thread-author">You</p>
+                      <p>{{ message.user_text }}</p>
+                      <p class="thread-author coach-label">Coach</p>
+                      <p>{{ message.assistant_text }}</p>
+                      <time class="comment-time" datetime="{{ message.created_at }}">{{ message.created_at | timestamp }}</time>
+                    </article>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <p class="empty panel-pad">No revision discussion yet.</p>
+              {% endif %}
+
+              <form method="post" action="{{ url_for('workout_revision') }}" class="stack-form revision-form">
+                <input type="hidden" name="date" value="{{ selected_date.isoformat() }}">
+                <label>
+                  {{ "Continue the discussion" if revision_thread and revision_thread.status == "active" else "Propose a revision" }}
+                  <textarea name="message" rows="4" placeholder="Drop the lunges, my knee is sore — you pick a safe replacement..." required></textarea>
+                </label>
+                <div class="revision-actions">
+                  <button type="submit" class="secondary">Discuss revision</button>
+                  <button type="submit" formaction="{{ url_for('apply_workout_revision') }}" formnovalidate>Apply revision</button>
+                  {% if revision_thread and revision_thread.status == "active" and revision_thread.messages %}
+                    <button type="submit" class="ghost" formaction="{{ url_for('discard_workout_revision') }}" formnovalidate>Discard discussion</button>
+                  {% endif %}
+                </div>
+              </form>
+            </section>
+
+            <section id="workout-question" class="panel questions-panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Workout Questions</h2>
+                  <span>Questions are informational and never change the saved workout.</span>
+                </div>
+              </div>
+
+              <form method="post" action="{{ url_for('workout_question') }}" class="stack-form question-form">
+                <input type="hidden" name="date" value="{{ selected_date.isoformat() }}">
+                <label>
+                  New question
+                  <textarea name="question" rows="4" placeholder="What equipment do I need? What should I skip if my knee hurts?" required></textarea>
+                </label>
+                <button type="submit">Start question thread</button>
+              </form>
+
+              <div id="questions" class="question-list">
+                {% if workout_questions %}
+                  {% for thread in workout_questions %}
+                    <article id="thread-{{ thread.id }}" class="question-item question-thread">
+                      <div class="thread-entry thread-root">
+                        <p class="thread-author">You</p>
+                        <strong>{{ thread.question }}</strong>
+                        <p class="thread-author coach-label">Coach</p>
+                        <p>{{ thread.answer }}</p>
+                        <time class="comment-time" datetime="{{ thread.created_at }}">{{ thread.created_at | timestamp }}</time>
+                      </div>
+                      {% if thread.replies %}
+                        <div class="thread-replies">
+                          {% for reply in thread.replies %}
+                            <div class="thread-entry">
+                              <p class="thread-author">You</p>
+                              <strong>{{ reply.question }}</strong>
+                              <p class="thread-author coach-label">Coach</p>
+                              <p>{{ reply.answer }}</p>
+                              <time class="comment-time" datetime="{{ reply.created_at }}">{{ reply.created_at | timestamp }}</time>
+                            </div>
+                          {% endfor %}
+                        </div>
+                      {% endif %}
+                      <form method="post" action="{{ url_for('workout_question') }}" class="thread-reply-form">
+                        <input type="hidden" name="date" value="{{ selected_date.isoformat() }}">
+                        <input type="hidden" name="thread_id" value="{{ thread.id }}">
+                        <label>
+                          Reply in this thread
+                          <textarea name="question" rows="2" placeholder="Ask a follow-up..." required></textarea>
+                        </label>
+                        <button type="submit" class="secondary">Reply</button>
+                      </form>
+                    </article>
+                  {% endfor %}
+                {% else %}
+                  <p class="empty">No questions saved for this workout yet.</p>
+                {% endif %}
+              </div>
+            </section>
+          {% endif %}
+
+        </div>
+      </div>
+    </main>
+  </body>
+</html>
